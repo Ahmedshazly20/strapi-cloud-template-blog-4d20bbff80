@@ -38,20 +38,33 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
       // Get user documentId
       const userDocumentId: string = user || ctx.state.user.documentId;
       
-      // ⭐ Check if user already completed this quiz (prevent duplicates)
-      const existingResult = await strapi.entityService.findMany(
-        'api::quiz-result.quiz-result',
+      // ✅ CRITICAL FIX: Check USER PROFILE first (not quiz-results table)
+      const userProfile = await strapi.entityService.findOne(
+        'plugin::users-permissions.user',
+        userDocumentId,
         {
-          filters: {
-            user: { documentId: userDocumentId },
-            quizType: quizType
-          },
-          limit: 1
+          fields: ['id', 'documentId', 'intelligenceScores', 'assignedPath', 'initialProgrammingScore', 'finalProgrammingScore']
         }
       );
 
-      if (existingResult && existingResult.length > 0) {
-        return ctx.badRequest('Quiz already completed. Cannot retake.');
+      if (!userProfile) {
+        return ctx.badRequest('User not found');
+      }
+
+      // ✅ Check if quiz already completed in USER PROFILE (not quiz-results)
+      if (quizType === 'intelligence' && userProfile.intelligenceScores) {
+        console.log('⚠️ Intelligence quiz already completed in user profile');
+        return ctx.badRequest('Intelligence quiz already completed in your profile.');
+      }
+
+      if (quizType === 'initial' && userProfile.initialProgrammingScore !== null && userProfile.initialProgrammingScore !== undefined) {
+        console.log('⚠️ Initial quiz already completed in user profile');
+        return ctx.badRequest('Initial quiz already completed in your profile.');
+      }
+
+      if (quizType === 'final' && userProfile.finalProgrammingScore !== null && userProfile.finalProgrammingScore !== undefined) {
+        console.log('⚠️ Final quiz already completed in user profile');
+        return ctx.badRequest('Final quiz already completed in your profile.');
       }
 
       let finalScore: number = 0;
@@ -214,20 +227,37 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
         return ctx.badRequest('Missing userId or quizType');
       }
 
-      const existingResult = await strapi.entityService.findMany(
-        'api::quiz-result.quiz-result',
+      // ✅ Check user profile instead of quiz-results
+      const userProfile = await strapi.entityService.findOne(
+        'plugin::users-permissions.user',
+        userId,
         {
-          filters: {
-            user: { documentId: userId },
-            quizType: quizType
-          },
-          limit: 1
+          fields: ['intelligenceScores', 'initialProgrammingScore', 'finalProgrammingScore']
         }
       );
 
+      if (!userProfile) {
+        return { completed: false, result: null };
+      }
+
+      let completed = false;
+      let score = null;
+
+      if (quizType === 'intelligence') {
+        completed = !!userProfile.intelligenceScores;
+        score = userProfile.intelligenceScores;
+      } else if (quizType === 'initial') {
+        completed = userProfile.initialProgrammingScore !== null && userProfile.initialProgrammingScore !== undefined;
+        score = userProfile.initialProgrammingScore;
+      } else if (quizType === 'final') {
+        completed = userProfile.finalProgrammingScore !== null && userProfile.finalProgrammingScore !== undefined;
+        score = userProfile.finalProgrammingScore;
+      }
+
       return {
-        completed: existingResult && existingResult.length > 0,
-        result: existingResult[0] || null
+        completed,
+        score,
+        message: completed ? 'Quiz already completed' : 'Quiz not completed'
       };
     }
   })
