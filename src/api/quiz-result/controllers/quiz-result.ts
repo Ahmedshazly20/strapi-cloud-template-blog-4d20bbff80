@@ -26,7 +26,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
         const bodyData = ctx.request.body.data || ctx.request.body;
         const { quizType, answers, user, userId, scores, score }: QuizSubmission = bodyData;
 
-        console.log('📥 Quiz submission received:', { 
+        console.log('🔥 Quiz submission received:', { 
           quizType, 
           user,
           userId,
@@ -58,21 +58,31 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
 
         console.log('👤 Target user ID:', targetUserId);
 
-        // ✅ CRITICAL FIX: Find user by ID or documentId
+        // ✅ CRITICAL FIX: Find user by documentId ONLY (Strapi v5)
         let userProfile;
         try {
-          // Try finding by documentId first
-          const usersByDocumentId = await strapi.db.query('plugin::users-permissions.user').findMany({
-            where: {
-              $or: [
-                { documentId: targetUserId },
-                { id: targetUserId }
-              ]
-            },
-            limit: 1
-          });
-
-          userProfile = usersByDocumentId[0];
+          // Check if targetUserId looks like a documentId (string) or numeric id
+          const isDocumentId = typeof targetUserId === 'string' && targetUserId.length > 10;
+          
+          if (isDocumentId) {
+            // Search by documentId
+            const usersByDocumentId = await strapi.db.query('plugin::users-permissions.user').findMany({
+              where: {
+                documentId: targetUserId
+              },
+              limit: 1
+            });
+            userProfile = usersByDocumentId[0];
+          } else {
+            // Search by numeric id
+            const usersById = await strapi.db.query('plugin::users-permissions.user').findMany({
+              where: {
+                id: parseInt(targetUserId)
+              },
+              limit: 1
+            });
+            userProfile = usersById[0];
+          }
 
           if (!userProfile) {
             console.error('❌ User not found with ID:', targetUserId);
@@ -291,16 +301,21 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
           return ctx.badRequest('Missing userId or quizType');
         }
 
-        // Find user by ID or documentId
-        const users = await strapi.db.query('plugin::users-permissions.user').findMany({
-          where: {
-            $or: [
-              { documentId: userId },
-              { id: userId }
-            ]
-          },
-          limit: 1
-        });
+        // Check if userId is documentId or numeric id
+        const isDocumentId = typeof userId === 'string' && userId.length > 10;
+        
+        let users;
+        if (isDocumentId) {
+          users = await strapi.db.query('plugin::users-permissions.user').findMany({
+            where: { documentId: userId },
+            limit: 1
+          });
+        } else {
+          users = await strapi.db.query('plugin::users-permissions.user').findMany({
+            where: { id: parseInt(userId) },
+            limit: 1
+          });
+        }
 
         const userProfile = users[0];
 
