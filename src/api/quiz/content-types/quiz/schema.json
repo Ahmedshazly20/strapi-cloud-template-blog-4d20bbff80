@@ -1,0 +1,65 @@
+{
+  "kind": "collectionType",
+  "collectionName": "quizzes",
+  "info": {
+    "singularName": "quiz",
+    "pluralName": "quizzes",
+    "displayName": "Quiz",
+    "description": "Intelligence and Programming Quizzes"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "type": {
+      "type": "enumeration",
+      "enum": ["intelligence", "initial", "final"],
+      "required": true
+    },"totalScore": {
+    "type": "integer",
+    "min": 1,
+    "default": 40
+},
+    
+    "title": {
+      "type": "string",
+      "required": true,
+      "maxLength": 200,
+      "minLength": 3
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 2000
+    },
+    "questions": {
+      "type": "json",
+      "required": true,
+      "default": []
+    },
+    "duration": {
+      "type": "integer",
+      "required": true,
+      "min": 5,
+      "max": 180,
+      "default": 30
+    },
+    "passingScore": {
+      "type": "integer",
+      "min": 0,
+      "max": 100,
+      "default": 70
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "quiz_results": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::quiz-result.quiz-result",
+      "mappedBy": "quiz"
+    }
+  }
+}

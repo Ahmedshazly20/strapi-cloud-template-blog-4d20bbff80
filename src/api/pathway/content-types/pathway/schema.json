@@ -1,0 +1,53 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pathways",
+  "info": {
+    "singularName": "pathway",
+    "pluralName": "pathways",
+    "displayName": "Pathway",
+    "description": "Learning pathways (Linguistic, Logical, Interpersonal)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "linguistic",
+        "logical",
+        "interpersonal"
+      ],
+      "required": true,
+      "unique": true
+    },
+    "title": {
+      "type": "string",
+      "required": true,
+      "maxLength": 200,
+      "minLength": 3
+    },
+    "description": {
+      "type": "text",
+      "required": true,
+      "maxLength": 2000
+    },
+    "icon": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "color": {
+      "type": "string",
+      "maxLength": 7,
+      "regex": "^#[0-9A-Fa-f]{6}$"
+    },
+    "units": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::unit.unit",
+      "mappedBy": "pathway"
+    }
+  }
+}
