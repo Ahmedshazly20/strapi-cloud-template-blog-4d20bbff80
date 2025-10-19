@@ -6,6 +6,7 @@ interface QuizSubmission {
   quizType: 'intelligence' | 'initial' | 'final';
   answers: Record<string, string>;
   user?: string;
+  userId?: string;
   scores?: Record<string, number>;
   score?: number;
 }
@@ -22,13 +23,16 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
   ({ strapi }: any) => ({
     async create(ctx: any) {
       try {
-        const { quizType, answers, user, scores, score }: QuizSubmission = ctx.request.body.data;
+        const bodyData = ctx.request.body.data || ctx.request.body;
+        const { quizType, answers, user, userId, scores, score }: QuizSubmission = bodyData;
 
         console.log('📥 Quiz submission received:', { 
           quizType, 
-          user, 
+          user,
+          userId,
           answersCount: Object.keys(answers || {}).length,
-          bodyData: ctx.request.body.data
+          authUser: ctx.state.user?.id,
+          bodyKeys: Object.keys(bodyData)
         });
 
         // Validate required fields
@@ -44,45 +48,52 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
           return ctx.badRequest('Invalid quiz type');
         }
 
-        // Get user documentId
-        const userDocumentId: string = user || ctx.state.user?.documentId;
+        // ✅ Get user ID (try multiple sources)
+        let targetUserId = userId || user || ctx.state.user?.id || ctx.state.user?.documentId;
         
-        if (!userDocumentId) {
-          console.error('❌ No user documentId found');
+        if (!targetUserId) {
+          console.error('❌ No user ID found in request');
           return ctx.unauthorized('User not authenticated');
         }
 
-        console.log('👤 User documentId:', userDocumentId);
+        console.log('👤 Target user ID:', targetUserId);
 
-        // ✅ CRITICAL FIX: Check USER PROFILE first
+        // ✅ CRITICAL FIX: Find user by ID or documentId
         let userProfile;
         try {
-          userProfile = await strapi.entityService.findOne(
-            'plugin::users-permissions.user',
-            userDocumentId,
-            {
-              fields: ['id', 'documentId', 'intelligenceScores', 'assignedPath', 'initialProgrammingScore', 'finalProgrammingScore']
-            }
-          );
+          // Try finding by documentId first
+          const usersByDocumentId = await strapi.db.query('plugin::users-permissions.user').findMany({
+            where: {
+              $or: [
+                { documentId: targetUserId },
+                { id: targetUserId }
+              ]
+            },
+            limit: 1
+          });
+
+          userProfile = usersByDocumentId[0];
+
+          if (!userProfile) {
+            console.error('❌ User not found with ID:', targetUserId);
+            return ctx.badRequest('User not found');
+          }
+
+          console.log('✅ User profile loaded:', {
+            id: userProfile.id,
+            documentId: userProfile.documentId,
+            username: userProfile.username,
+            intelligenceScores: userProfile.intelligenceScores,
+            initialScore: userProfile.initialProgrammingScore,
+            finalScore: userProfile.finalProgrammingScore
+          });
+
         } catch (error) {
           console.error('❌ Error fetching user profile:', error);
-          return ctx.internalServerError('Failed to fetch user profile');
+          return ctx.internalServerError('Failed to fetch user profile: ' + error.message);
         }
 
-        if (!userProfile) {
-          console.error('❌ User not found:', userDocumentId);
-          return ctx.badRequest('User not found');
-        }
-
-        console.log('✅ User profile loaded:', {
-          id: userProfile.id,
-          documentId: userProfile.documentId,
-          intelligenceScores: userProfile.intelligenceScores,
-          initialScore: userProfile.initialProgrammingScore,
-          finalScore: userProfile.finalProgrammingScore
-        });
-
-        // ✅ Check if quiz already completed
+        // ✅ Check if quiz already completed in USER PROFILE
         if (quizType === 'intelligence' && userProfile.intelligenceScores) {
           console.log('⚠️ Intelligence quiz already completed');
           return ctx.badRequest('Intelligence quiz already completed in your profile.');
@@ -119,7 +130,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
             return ctx.badRequest('Invalid intelligence scores');
           }
 
-          // Create quiz result
+          // Create quiz result (use numeric ID for relation)
           let result;
           try {
             result = await strapi.entityService.create('api::quiz-result.quiz-result', {
@@ -128,14 +139,14 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
                 answers,
                 scores: categoryScores,
                 score: finalScore,
-                user: userDocumentId,
+                user: userProfile.id, // ✅ Use numeric ID
                 completed: true
               }
             });
             console.log('✅ Quiz result created:', result.id);
           } catch (error) {
             console.error('❌ Error creating quiz result:', error);
-            return ctx.internalServerError('Failed to create quiz result');
+            return ctx.internalServerError('Failed to create quiz result: ' + error.message);
           }
 
           // Determine assigned path
@@ -149,11 +160,11 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
 
           console.log('🎯 Assigned path:', assignedPath);
 
-          // Update user profile
+          // Update user profile (use numeric ID)
           try {
             await strapi.entityService.update(
               'plugin::users-permissions.user',
-              userDocumentId,
+              userProfile.id, // ✅ Use numeric ID
               {
                 data: {
                   intelligenceScores: categoryScores,
@@ -164,7 +175,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
             console.log('✅ User profile updated');
           } catch (error) {
             console.error('❌ Error updating user profile:', error);
-            return ctx.internalServerError('Failed to update user profile');
+            return ctx.internalServerError('Failed to update user profile: ' + error.message);
           }
 
           return {
@@ -222,7 +233,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
               quizType,
               answers,
               score: finalScore,
-              user: userDocumentId,
+              user: userProfile.id, // ✅ Use numeric ID
               completed: true,
               timeSpent: 0
             }
@@ -230,7 +241,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
           console.log('✅ Quiz result created:', result.id);
         } catch (error) {
           console.error('❌ Error creating quiz result:', error);
-          return ctx.internalServerError('Failed to create quiz result');
+          return ctx.internalServerError('Failed to create quiz result: ' + error.message);
         }
 
         // Update user score
@@ -239,7 +250,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
         try {
           await strapi.entityService.update(
             'plugin::users-permissions.user',
-            userDocumentId,
+            userProfile.id, // ✅ Use numeric ID
             {
               data: {
                 [scoreField]: percentageScore
@@ -249,7 +260,7 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
           console.log(`✅ User ${scoreField} updated:`, percentageScore);
         } catch (error) {
           console.error('❌ Error updating user score:', error);
-          return ctx.internalServerError('Failed to update user score');
+          return ctx.internalServerError('Failed to update user score: ' + error.message);
         }
 
         return {
@@ -280,13 +291,18 @@ module.exports = require('@strapi/strapi').factories.createCoreController(
           return ctx.badRequest('Missing userId or quizType');
         }
 
-        const userProfile = await strapi.entityService.findOne(
-          'plugin::users-permissions.user',
-          userId,
-          {
-            fields: ['intelligenceScores', 'initialProgrammingScore', 'finalProgrammingScore']
-          }
-        );
+        // Find user by ID or documentId
+        const users = await strapi.db.query('plugin::users-permissions.user').findMany({
+          where: {
+            $or: [
+              { documentId: userId },
+              { id: userId }
+            ]
+          },
+          limit: 1
+        });
+
+        const userProfile = users[0];
 
         if (!userProfile) {
           return { completed: false, result: null };
