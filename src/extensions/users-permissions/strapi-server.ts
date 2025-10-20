@@ -31,6 +31,7 @@ module.exports = (plugin) => {
           'assignedPath',
           'initialProgrammingScore',
           'finalProgrammingScore',
+          'completedUnits',
           'unitResults',
           'status',
           'createdAt',
@@ -47,7 +48,8 @@ module.exports = (plugin) => {
         id: user.id,
         documentId: user.documentId,
         username: user.username,
-        assignedPath: user.assignedPath
+        assignedPath: user.assignedPath,
+        completedUnitsCount: user.completedUnits?.length || 0
       });
 
       // ✅ Step 2: Get ALL unit-results from database
