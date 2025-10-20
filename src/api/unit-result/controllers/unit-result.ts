@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * unit-result controller - ENHANCED VERSION
+ * unit-result controller - SIMPLE VERSION with completedUnits
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
@@ -12,7 +12,7 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
       const bodyData = ctx.request.body.data || ctx.request.body;
       const { user, unitId, quizType, answers, score, passed } = bodyData;
 
-      console.log('🔥 Unit quiz submission received:', {
+      console.log('🔥 Unit quiz submission:', {
         user,
         unitId,
         quizType,
@@ -21,28 +21,16 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
         timestamp: new Date().toISOString()
       });
 
-      // ✅ Validate required fields
-      if (!user) {
-        console.error('❌ Validation error: User is required');
-        return ctx.badRequest('User is required');
+      // ✅ Validate
+      if (!user || !unitId || !quizType || score === undefined) {
+        return ctx.badRequest('Missing required fields');
       }
 
-      if (!unitId) {
-        console.error('❌ Validation error: unitId is required');
-        return ctx.badRequest('unitId must be defined.');
+      if (!['small', 'full', 'remedial'].includes(quizType)) {
+        return ctx.badRequest('Invalid quiz type');
       }
 
-      if (!quizType || !['small', 'full', 'remedial'].includes(quizType)) {
-        console.error('❌ Validation error: Invalid quiz type:', quizType);
-        return ctx.badRequest('Invalid quiz type. Must be: small, full, or remedial');
-      }
-
-      if (score === undefined || score === null) {
-        console.error('❌ Validation error: Score is required');
-        return ctx.badRequest('Score is required');
-      }
-
-      // ✅ Get user by documentId
+      // ✅ Get user
       const users = await strapi.db.query('plugin::users-permissions.user').findMany({
         where: { documentId: user },
         limit: 1
@@ -50,19 +38,14 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
 
       const userProfile = users[0];
       if (!userProfile) {
-        console.error('❌ User not found with documentId:', user);
         return ctx.badRequest('User not found');
       }
 
-      console.log('👤 User found:', {
-        id: userProfile.id,
-        documentId: userProfile.documentId,
-        username: userProfile.username
-      });
+      console.log('👤 User found:', userProfile.id, userProfile.username);
 
-      // ✅ Check if already submitted (for FULL quiz only - prevent duplicates)
+      // ✅ Check if FULL quiz already passed
       if (quizType === 'full') {
-        const existingResult = await strapi.db.query('api::unit-result.unit-result').findOne({
+        const existingPassed = await strapi.db.query('api::unit-result.unit-result').findOne({
           where: {
             user: userProfile.id,
             unitId: unitId,
@@ -71,13 +54,8 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
           }
         });
 
-        if (existingResult) {
-          console.log('⚠️ Unit already completed successfully:', {
-            resultId: existingResult.id,
-            unitId: existingResult.unitId,
-            score: existingResult.score,
-            completedAt: existingResult.completedAt
-          });
+        if (existingPassed) {
+          console.log('⚠️ Unit already completed');
           return ctx.badRequest('You have already completed this unit successfully');
         }
       }
@@ -85,100 +63,74 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
       // ✅ Create unit result
       const result = await strapi.entityService.create('api::unit-result.unit-result', {
         data: {
-          user: userProfile.id, // Numeric ID for relation
-          unitId: unitId, // Store as string documentId
+          user: userProfile.id,
+          unitId: unitId,
           quizType,
           answers: answers || {},
           score,
           passed: passed || false,
           attempts: 1,
           completedAt: new Date().toISOString(),
-          publishedAt: new Date().toISOString() // IMPORTANT for Strapi v5
+          publishedAt: new Date().toISOString()
         }
       });
 
-      console.log('✅ Unit result created successfully:', {
-        id: result.id,
-        documentId: result.documentId,
-        unitId: result.unitId,
-        quizType: result.quizType,
-        score: result.score,
-        passed: result.passed,
-        userId: userProfile.id,
-        createdAt: result.createdAt
-      });
+      console.log('✅ Unit result created:', result.id);
 
-      // ✅ CRITICAL: Update user's unitResults JSON field
-      let currentUnitResults = [];
-      
-      try {
-        // Get fresh user data
-        const freshUser = await strapi.db.query('plugin::users-permissions.user').findOne({
-          where: { id: userProfile.id },
-          select: ['unitResults']
-        });
-        
-        currentUnitResults = freshUser?.unitResults || [];
-        
-        // Ensure it's an array
-        if (!Array.isArray(currentUnitResults)) {
-          currentUnitResults = [];
+      // ✅✅✅ CRITICAL: Update completedUnits if FULL quiz PASSED
+      if (quizType === 'full' && passed === true) {
+        try {
+          // Get fresh user data
+          const freshUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+            where: { id: userProfile.id },
+            select: ['completedUnits']
+          });
+
+          let completedUnits = freshUser?.completedUnits || [];
+          
+          // Ensure it's an array
+          if (!Array.isArray(completedUnits)) {
+            completedUnits = [];
+          }
+
+          // Add unitId if not already there
+          if (!completedUnits.includes(unitId)) {
+            completedUnits.push(unitId);
+            
+            console.log('📝 Adding to completedUnits:', {
+              userId: userProfile.id,
+              unitId,
+              previousCount: completedUnits.length - 1,
+              newCount: completedUnits.length
+            });
+
+            // Update user
+            await strapi.db.query('plugin::users-permissions.user').update({
+              where: { id: userProfile.id },
+              data: {
+                completedUnits: completedUnits
+              }
+            });
+
+            console.log('✅ completedUnits updated successfully');
+
+            // Verify
+            const verifyUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+              where: { id: userProfile.id },
+              select: ['completedUnits']
+            });
+            
+            console.log('🔍 Verification - completedUnits:', verifyUser?.completedUnits);
+          } else {
+            console.log('ℹ️ Unit already in completedUnits');
+          }
+
+        } catch (updateError) {
+          console.error('❌ Error updating completedUnits:', updateError);
+          // Don't throw - result is saved
         }
-        
-        console.log('📊 Current user unitResults before update:', {
-          userId: userProfile.id,
-          existingCount: currentUnitResults.length
-        });
-        
-      } catch (error) {
-        console.error('⚠️ Error reading current unitResults:', error);
-        currentUnitResults = [];
       }
-      
-      // Add new result
-      const newResult = {
-        id: result.id,
-        documentId: result.documentId,
-        unitId: result.unitId,
-        quizType: result.quizType,
-        score: result.score,
-        passed: result.passed,
-        answers: result.answers,
-        completedAt: result.completedAt,
-        createdAt: result.createdAt
-      };
-      
-      const updatedUnitResults = [...currentUnitResults, newResult];
 
-      // Update user profile with new unitResults
-      await strapi.db.query('plugin::users-permissions.user').update({
-        where: { id: userProfile.id },
-        data: {
-          unitResults: updatedUnitResults
-        }
-      });
-
-      console.log('✅ User unitResults updated successfully:', {
-        userId: userProfile.id,
-        previousCount: currentUnitResults.length,
-        newCount: updatedUnitResults.length,
-        latestResult: {
-          unitId: result.unitId,
-          quizType: result.quizType,
-          passed: result.passed,
-          score: result.score
-        }
-      });
-      
-      // ✅ Verify the update
-      const verifyUser = await strapi.db.query('plugin::users-permissions.user').findOne({
-        where: { id: userProfile.id },
-        select: ['unitResults']
-      });
-      
-      console.log('🔍 Verification - unitResults count:', verifyUser?.unitResults?.length || 0);
-
-      // Return clean response
       return {
         data: {
           id: result.id,
@@ -188,71 +140,15 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
           score: result.score,
           passed: result.passed,
           createdAt: result.createdAt,
-          message: passed 
-            ? `تم حفظ نتيجتك بنجاح! ${quizType === 'full' ? 'تم فتح الوحدة التالية' : ''}`
-            : 'تم حفظ نتيجتك. يمكنك المحاولة مرة أخرى'
+          message: passed && quizType === 'full'
+            ? '🎉 تم فتح الوحدة التالية!'
+            : 'تم حفظ نتيجتك'
         }
       };
 
     } catch (error) {
-      console.error('❌ Error creating unit result:', {
-        message: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
-      
-      return ctx.internalServerError({
-        error: {
-          message: 'Failed to save unit result: ' + error.message,
-          details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        }
-      });
-    }
-  },
-
-  // ✅ Add custom find method to get user's unit results
-  async find(ctx) {
-    try {
-      const { user } = ctx.query;
-
-      if (!user) {
-        return ctx.badRequest('User ID is required');
-      }
-
-      // Get user by documentId
-      const users = await strapi.db.query('plugin::users-permissions.user').findMany({
-        where: { documentId: user },
-        limit: 1
-      });
-
-      const userProfile = users[0];
-      if (!userProfile) {
-        return ctx.badRequest('User not found');
-      }
-
-      // Find all unit results for this user
-      const results = await strapi.db.query('api::unit-result.unit-result').findMany({
-        where: {
-          user: userProfile.id
-        },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      console.log('📊 Retrieved unit results:', {
-        userId: userProfile.id,
-        totalResults: results.length
-      });
-
-      return {
-        data: results,
-        meta: {
-          total: results.length
-        }
-      };
-
-    } catch (error) {
-      console.error('❌ Error fetching unit results:', error);
-      return ctx.internalServerError('Failed to fetch unit results: ' + error.message);
+      console.error('❌ Error creating unit result:', error);
+      return ctx.internalServerError('Failed to save result: ' + error.message);
     }
   }
 }));
