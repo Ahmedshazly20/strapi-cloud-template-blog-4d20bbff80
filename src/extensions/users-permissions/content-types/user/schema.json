@@ -104,6 +104,10 @@
       "max": 100,
       "default": null
     },
+    "completedUnits": {
+      "type": "json",
+      "default": []
+    },
     "unitResults": {
       "type": "json",
       "default": null
