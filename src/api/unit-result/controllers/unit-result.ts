@@ -108,24 +108,49 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
         createdAt: result.createdAt
       });
 
-      // ✅ Update user's unitResults field (CRITICAL for frontend)
-      const currentUnitResults = userProfile.unitResults || [];
+      // ✅ CRITICAL: Update user's unitResults JSON field
+      let currentUnitResults = [];
       
-      // Add new result to user's unitResults array
-      const updatedUnitResults = [
-        ...currentUnitResults,
-        {
-          id: result.id,
-          documentId: result.documentId,
-          unitId: result.unitId,
-          quizType: result.quizType,
-          score: result.score,
-          passed: result.passed,
-          completedAt: result.completedAt
+      try {
+        // Get fresh user data
+        const freshUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+          where: { id: userProfile.id },
+          select: ['unitResults']
+        });
+        
+        currentUnitResults = freshUser?.unitResults || [];
+        
+        // Ensure it's an array
+        if (!Array.isArray(currentUnitResults)) {
+          currentUnitResults = [];
         }
-      ];
+        
+        console.log('📊 Current user unitResults before update:', {
+          userId: userProfile.id,
+          existingCount: currentUnitResults.length
+        });
+        
+      } catch (error) {
+        console.error('⚠️ Error reading current unitResults:', error);
+        currentUnitResults = [];
+      }
+      
+      // Add new result
+      const newResult = {
+        id: result.id,
+        documentId: result.documentId,
+        unitId: result.unitId,
+        quizType: result.quizType,
+        score: result.score,
+        passed: result.passed,
+        answers: result.answers,
+        completedAt: result.completedAt,
+        createdAt: result.createdAt
+      };
+      
+      const updatedUnitResults = [...currentUnitResults, newResult];
 
-      // Update user profile
+      // Update user profile with new unitResults
       await strapi.db.query('plugin::users-permissions.user').update({
         where: { id: userProfile.id },
         data: {
@@ -133,15 +158,25 @@ module.exports = createCoreController('api::unit-result.unit-result', ({ strapi 
         }
       });
 
-      console.log('✅ User unitResults updated:', {
+      console.log('✅ User unitResults updated successfully:', {
         userId: userProfile.id,
-        totalResults: updatedUnitResults.length,
+        previousCount: currentUnitResults.length,
+        newCount: updatedUnitResults.length,
         latestResult: {
           unitId: result.unitId,
           quizType: result.quizType,
-          passed: result.passed
+          passed: result.passed,
+          score: result.score
         }
       });
+      
+      // ✅ Verify the update
+      const verifyUser = await strapi.db.query('plugin::users-permissions.user').findOne({
+        where: { id: userProfile.id },
+        select: ['unitResults']
+      });
+      
+      console.log('🔍 Verification - unitResults count:', verifyUser?.unitResults?.length || 0);
 
       // Return clean response
       return {
