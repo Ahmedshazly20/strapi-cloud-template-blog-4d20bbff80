@@ -1,0 +1,51 @@
+{
+  "kind": "singleType",
+  "collectionName": "remedial_plan",
+  "info": {
+    "singularName": "remedial-plan",
+    "pluralName": "remedial-plans",
+    "displayName": "Remedial Plan (Global)",
+    "description": "Single global remedial content for all failed units"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "default": "الخطة العلاجية - دعم إضافي"
+    },
+    "description": {
+      "type": "text",
+      "default": "محتوى علاجي موحد لمساعدتك على فهم المفاهيم الأساسية بشكل أفضل"
+    },
+    "videoUrl": {
+      "type": "string",
+      "maxLength": 500,
+      "required": true
+    },
+    "pdfUrl": {
+      "type": "string",
+      "maxLength": 500,
+      "required": true
+    },
+    "quizQuestions": {
+      "type": "json",
+      "required": true,
+      "default": []
+    },
+    "passingScore": {
+      "type": "integer",
+      "min": 0,
+      "max": 100,
+      "default": 70
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

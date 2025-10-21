@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "unit_results",
+  "info": {
+    "singularName": "unit-result",
+    "pluralName": "unit-results",
+    "displayName": "Unit Result",
+    "description": "Student unit quiz results (small, full, remedial)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "unitId": {
+      "type": "string",
+      "required": true,
+      "maxLength": 50
+    },
+    "quizType": {
+      "type": "enumeration",
+      "enum": [
+        "small",
+        "full",
+        "remedial"
+      ],
+      "required": true
+    },
+    "score": {
+      "type": "float",
+      "required": true,
+      "min": 0,
+      "max": 100,
+      "default": 0
+    },
+    "passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "attempts": {
+      "type": "integer",
+      "min": 1,
+      "max": 3,
+      "default": 1
+    },
+    "answers": {
+      "type": "json",
+      "default": {}
+    },
+    "timeSpent": {
+      "type": "integer",
+      "min": 0,
+      "default": 0
+    },
+    "completedAt": {
+      "type": "datetime"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "unit_results"
+    },
+    "unit": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::unit.unit",
+      "inversedBy": "unit_results"
+    }
+  }
+}

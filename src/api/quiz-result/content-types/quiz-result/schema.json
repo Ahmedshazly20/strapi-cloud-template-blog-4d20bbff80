@@ -1,0 +1,59 @@
+{
+  "kind": "collectionType",
+  "collectionName": "quiz_results",
+  "info": {
+    "singularName": "quiz-result",
+    "pluralName": "quiz-results",
+    "displayName": "Quiz Result",
+    "description": "Student quiz attempts and results"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "quizType": {
+      "type": "enumeration",
+      "enum": ["intelligence", "initial", "final"],
+      "required": true
+    },
+    "answers": {
+      "type": "json",
+      "required": true,
+      "default": {}
+    },
+    "scores": {
+      "type": "json",
+      "default": {},
+      "description": "Category-wise scores for intelligence quiz"
+    },
+    "score": {
+      "type": "float",
+      "min": 0,
+      "default": 0,
+      "description": "Total score (max varies by quiz type)"
+    },
+    "timeSpent": {
+      "type": "integer",
+      "min": 0,
+      "default": 0
+    },
+    "completed": {
+      "type": "boolean",
+      "default": true
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "quiz_results"
+    },
+    "quiz": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::quiz.quiz",
+      "inversedBy": "quiz_results"
+    }
+  }
+}

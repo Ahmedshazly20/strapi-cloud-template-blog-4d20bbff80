@@ -1,0 +1,89 @@
+{
+  "kind": "collectionType",
+  "collectionName": "units",
+  "info": {
+    "singularName": "unit",
+    "pluralName": "units",
+    "displayName": "Unit",
+    "description": "Learning units for each pathway"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "pathId": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "linguistic",
+        "logical",
+        "interpersonal"
+      ]
+    },
+    "unitNumber": {
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "max": 5
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200,
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 1000
+    },
+    "videoUrl": {
+      "type": "string",
+      "maxLength": 500,
+      "required": false
+    },
+    "videoUrl2": {
+      "type": "string",
+      "maxLength": 500,
+      "required": false
+    },
+    "pdfUrl": {
+      "type": "string",
+      "maxLength": 500,
+      "required": false
+    },
+    "smallQuiz": {
+      "type": "json",
+      "required": true
+    },
+    "fullUnitQuiz": {
+      "type": "json",
+      "required": true
+    },
+    "passingScore": {
+      "type": "integer",
+      "default": 70,
+      "min": 0,
+      "max": 100
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "integer"
+    },
+    "unit_results": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::unit-result.unit-result",
+      "mappedBy": "unit"
+    },
+    "pathway": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::pathway.pathway",
+      "inversedBy": "units"
+    }
+  }
+}
