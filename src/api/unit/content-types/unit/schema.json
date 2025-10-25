@@ -47,6 +47,11 @@
       "maxLength": 500,
       "required": false
     },
+     "videoUrl3": {
+      "type": "string",
+      "maxLength": 500,
+      "required": false
+    },
     "pdfUrl": {
       "type": "string",
       "maxLength": 500,
