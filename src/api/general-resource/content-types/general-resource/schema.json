@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "general_resources",
+  "info": {
+    "singularName": "general-resource",
+    "pluralName": "general-resources",
+    "displayName": "General Resource",
+    "description": "Manage general educational resources (PDFs, links, etc.)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "maxLength": 200
+    },
+    "resourceType": {
+      "type": "enumeration",
+      "enum": ["pdf", "video", "link", "document"],
+      "required": true,
+      "default": "pdf"
+    },
+    "url": {
+      "type": "string",
+      "required": true,
+      "maxLength": 500
+    },
+    "description": {
+      "type": "text",
+      "required": false
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    }
+  }
+}
