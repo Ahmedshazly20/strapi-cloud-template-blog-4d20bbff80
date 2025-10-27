@@ -5,4 +5,4 @@
 import { factories } from '@strapi/strapi';
 
 // @ts-ignore
-export default factories.createCoreService('api::whatsapplink.whatsapplink');
+export default factories.createCoreService('api::whatsapplink.whatsapplink' as any);
