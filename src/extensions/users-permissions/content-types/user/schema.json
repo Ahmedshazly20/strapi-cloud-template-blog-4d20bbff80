@@ -89,7 +89,11 @@
     },
     "assignedPath": {
       "type": "enumeration",
-      "enum": ["linguistic", "logical", "interpersonal"],
+      "enum": [
+        "linguistic",
+        "logical",
+        "interpersonal"
+      ],
       "default": null
     },
     "initialProgrammingScore": {
@@ -116,8 +120,21 @@
     },
     "status": {
       "type": "enumeration",
-      "enum": ["active", "completed"],
+      "enum": [
+        "active",
+        "completed"
+      ],
       "default": "active"
+    },
+    "needsRemedial": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when student fails unit quiz and needs remedial"
+    },
+    "remedialUnitId": {
+      "type": "string",
+      "default": null,
+      "description": "ID of the unit that requires remedial work"
     },
     "quiz_results": {
       "type": "relation",
